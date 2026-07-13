@@ -1,5 +1,6 @@
 import { requireUser } from "@/lib/auth/guards";
 import { logoutAction } from "@/actions/auth";
+import { UploadForm } from "@/components/upload/upload-form";
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -7,6 +8,7 @@ export default async function DashboardPage() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-16">
       <h1 className="text-2xl font-semibold">Welcome, {user.email}</h1>
+      <UploadForm />
       <form action={logoutAction}>
         <button
           type="submit"

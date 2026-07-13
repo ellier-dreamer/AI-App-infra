@@ -1,8 +1,9 @@
 # AI App Infra
 
 A responsive, installable-PWA webapp. v1 scope: email/password registration and login with
-session persistence. Built with Next.js (App Router), Supabase (Postgres + Auth), and deployed
-on Vercel.
+session persistence. Once logged in, a user can upload a file into their own private storage
+folder. Built with Next.js (App Router), Supabase (Postgres + Auth + Storage), and deployed on
+Vercel.
 
 ## Free-tier services this depends on
 
@@ -26,6 +27,11 @@ These steps require access to third-party dashboards and must be done by a human
 4. **In Vercel -> Project Settings -> Environment Variables**, set `NEXT_PUBLIC_SUPABASE_URL`
    and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (from step 1) for Production, Preview, and Development.
 5. **Acknowledge the Vercel Hobby plan's non-commercial restriction** noted above.
+6. **Apply the storage migration** in `supabase/migrations/` to your Supabase project — either
+   `npx supabase link` + `npx supabase db push`, or paste the SQL file's contents into the
+   dashboard's SQL Editor. This creates the private `user-uploads` bucket and its per-user-folder
+   RLS policies; without it, the dashboard's file upload will fail (registration and login are
+   unaffected).
 
 ## Running locally
 
@@ -58,6 +64,8 @@ These steps require access to third-party dashboards and must be done by a human
 - `src/app/` — routes: `/login`, `/register`, `/dashboard` (session-protected), plus the PWA
   `manifest.ts`.
 - `src/components/auth/` — login/register form client components.
+- `src/components/upload/upload-form.tsx` — the dashboard's file upload form (logged-in users
+  only).
 - `src/lib/supabase/` — Supabase client helpers: `client.ts` (browser), `server.ts` (Server
   Components/Actions), `proxy.ts` (session-refresh, used by `src/proxy.ts`).
 - `src/lib/auth/guards.ts` — `requireUser()` / `redirectIfAuthenticated()`, called directly from
@@ -65,9 +73,16 @@ These steps require access to third-party dashboards and must be done by a human
   navigation, so an auth check placed there wouldn't be reliably re-checked).
 - `src/lib/validations/auth.ts` — zod schemas shared by client-side `minLength` hints and the
   server actions.
+- `src/lib/validations/upload.ts` — zod schema and byte-size limit for the dashboard file upload,
+  plus `sanitizeFileName()` for building a safe storage object key.
 - `src/lib/errors/supabase-auth.ts` — maps raw Supabase Auth errors to user-facing messages
   (duplicate email, weak password, invalid credentials).
 - `src/actions/auth.ts` — `registerAction`, `loginAction`, `logoutAction` server actions.
+- `src/actions/upload.ts` — `uploadFileAction`, called only from the (session-protected)
+  dashboard. Re-checks `auth.getUser()` itself rather than trusting the page's guard, and uploads
+  to the `user-uploads` bucket under `<user id>/<filename>`.
+- `supabase/migrations/` — `create_user_uploads_bucket.sql` creates the private `user-uploads`
+  storage bucket and RLS policies restricting each user to their own `<user id>/` folder.
 - `src/proxy.ts` — Next.js 16 renamed `middleware.ts` to `proxy.ts`; this only refreshes the
   Supabase session cookie on every request, it does not do authorization redirects (that's in
   `guards.ts`).
